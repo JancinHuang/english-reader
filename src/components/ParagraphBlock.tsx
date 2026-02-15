@@ -30,7 +30,7 @@ export function ParagraphBlock({
         <button
           type="button"
           onClick={onToggle}
-          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-50"
+          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 no-select"
           aria-expanded={open}
           aria-controls={`translation-${data.id}`}
         >

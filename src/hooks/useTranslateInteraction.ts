@@ -45,7 +45,7 @@ export function useTranslateInteraction(params: { article: Article }) {
   const longPressTimer = useRef<number | null>(null);
   const startPoint = useRef<{ x: number; y: number } | null>(null);
   const clientCache = useRef(new Map<string, { at: number; translatedText: string; provider: string }>());
-  const longPressTriggered = useRef(false);
+  const isLongPressing = useRef(false);
 
   function closePopover() {
     setPopover((p) => ({ ...p, open: false, loading: false }));
@@ -143,7 +143,7 @@ export function useTranslateInteraction(params: { article: Article }) {
   function onPointerStart(x: number, y: number) {
     clearTimers();
     startPoint.current = { x, y };
-    longPressTriggered.current = false;
+    isLongPressing.current = false;
     longPressTimer.current = window.setTimeout(() => {
       const s = settingsRef.current;
       if (!s.enabled) {
@@ -153,13 +153,13 @@ export function useTranslateInteraction(params: { article: Article }) {
       if (!found.word) {
         return;
       }
-      longPressTriggered.current = true;
+      isLongPressing.current = true;
       const rect = found.rect;
       const anchor = rect
         ? { x: rect.left + rect.width / 2, y: rect.bottom }
         : { x, y };
       void openWord(found.word, anchor);
-    }, 800);
+    }, 500);
   }
 
   function onPointerMove(x: number, y: number) {
@@ -186,46 +186,50 @@ export function useTranslateInteraction(params: { article: Article }) {
   }
 
   useEffect(() => {
+    const el = document.documentElement;
+    
+    function handleTouchStart(e: TouchEvent) {
+      const t = e.touches[0];
+      if (!t) return;
+      onPointerStart(t.clientX, t.clientY);
+    }
+
+    function handleTouchMove(e: TouchEvent) {
+      const t = e.touches[0];
+      if (!t) return;
+      onPointerMove(t.clientX, t.clientY);
+    }
+
+    function handleTouchEnd(e: TouchEvent) {
+      if (isLongPressing.current) {
+        e.preventDefault();
+      }
+      onPointerEnd();
+    }
+
+    function handleContextMenu(e: MouseEvent) {
+      if (isLongPressing.current) {
+        e.preventDefault();
+      }
+    }
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: true });
+    el.addEventListener("touchend", handleTouchEnd, { passive: false });
+    el.addEventListener("touchcancel", onPointerEnd, { passive: true });
+    el.addEventListener("contextmenu", handleContextMenu);
+
     return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("touchcancel", onPointerEnd);
+      el.removeEventListener("contextmenu", handleContextMenu);
       clearTimers();
     };
   }, []);
 
   const handlers = {
-    onTouchStart: (e: React.TouchEvent) => {
-      const t = e.touches[0];
-      if (!t) return;
-      onPointerStart(t.clientX, t.clientY);
-    },
-    onTouchMove: (e: React.TouchEvent) => {
-      const t = e.touches[0];
-      if (!t) return;
-      onPointerMove(t.clientX, t.clientY);
-    },
-    onTouchEnd: (e: React.TouchEvent) => {
-      if (longPressTriggered.current) {
-        e.preventDefault();
-      }
-      onPointerEnd();
-    },
-    onTouchCancel: () => {
-      onPointerEnd();
-    },
-    onContextMenu: (e: React.MouseEvent) => {
-      if (longPressTriggered.current) {
-        e.preventDefault();
-      }
-    },
-    onMouseDown: (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      onPointerStart(e.clientX, e.clientY);
-    },
-    onMouseMove: (e: React.MouseEvent) => {
-      onPointerMove(e.clientX, e.clientY);
-    },
-    onMouseUp: () => {
-      onPointerEnd();
-    },
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
         closePopover();
