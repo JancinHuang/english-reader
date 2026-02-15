@@ -140,12 +140,9 @@ export default function ReaderClient({
       <main className="bg-white">
         <Container className="py-10">
           <section>
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold tracking-wide text-zinc-900">
-                核心词汇
-              </h2>
-              <div className="text-xs text-zinc-500">点击小喇叭仅作展示</div>
-            </div>
+            <h2 className="text-sm font-semibold tracking-wide text-zinc-900">
+              核心词汇
+            </h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {resolvedArticle.vocab.map((v) => (
                 <VocabCard key={v.word} item={v} />

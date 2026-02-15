@@ -24,13 +24,13 @@ export function ParagraphBlock({
         <div className="text-xs font-medium text-zinc-500">段落 {data.id}</div>
       </div>
 
-      <p className="mt-3 font-serif text-lg leading-8 text-zinc-950 no-select">{data.en}</p>
+      <p className="mt-3 font-serif text-lg leading-8 text-zinc-950">{data.en}</p>
 
       <div className="mt-4">
         <button
           type="button"
           onClick={onToggle}
-          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-50 no-select"
+          className="inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-700 transition-colors hover:bg-zinc-50"
           aria-expanded={open}
           aria-controls={`translation-${data.id}`}
         >

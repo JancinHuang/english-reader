@@ -17,10 +17,10 @@ export default async function Home() {
               English Intensive Reading
             </div>
             <h1 className="text-3xl font-semibold leading-tight text-zinc-950 sm:text-4xl">
-              逐段精读 + 交互式译文 + 即时测验 + 长按单词翻译
+              英语阅读能力提升
             </h1>
             <p className="max-w-2xl text-base leading-7 text-zinc-600">
-              读文章时尽量先理解英文；遇到卡点再展开译文。最后用选择题快速验证理解，并查看深度解析，长按单词可以进行翻译。
+              逐段阅读英文原文，按需查看译文，完成后测验验证理解，长按单词即时翻译
             </p>
           </div>
         </Container>

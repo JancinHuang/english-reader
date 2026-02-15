@@ -187,7 +187,7 @@ export function useTranslateInteraction(params: { article: Article }) {
 
   useEffect(() => {
     const el = document.documentElement;
-    
+
     function handleTouchStart(e: TouchEvent) {
       const t = e.touches[0];
       if (!t) return;
@@ -207,6 +207,19 @@ export function useTranslateInteraction(params: { article: Article }) {
       onPointerEnd();
     }
 
+    function handleMouseDown(e: MouseEvent) {
+      if (e.button !== 0) return;
+      onPointerStart(e.clientX, e.clientY);
+    }
+
+    function handleMouseMove(e: MouseEvent) {
+      onPointerMove(e.clientX, e.clientY);
+    }
+
+    function handleMouseUp() {
+      onPointerEnd();
+    }
+
     function handleContextMenu(e: MouseEvent) {
       if (isLongPressing.current) {
         e.preventDefault();
@@ -217,6 +230,9 @@ export function useTranslateInteraction(params: { article: Article }) {
     el.addEventListener("touchmove", handleTouchMove, { passive: true });
     el.addEventListener("touchend", handleTouchEnd, { passive: false });
     el.addEventListener("touchcancel", onPointerEnd, { passive: true });
+    el.addEventListener("mousedown", handleMouseDown, { passive: true });
+    el.addEventListener("mousemove", handleMouseMove, { passive: true });
+    el.addEventListener("mouseup", handleMouseUp, { passive: true });
     el.addEventListener("contextmenu", handleContextMenu);
 
     return () => {
@@ -224,6 +240,9 @@ export function useTranslateInteraction(params: { article: Article }) {
       el.removeEventListener("touchmove", handleTouchMove);
       el.removeEventListener("touchend", handleTouchEnd);
       el.removeEventListener("touchcancel", onPointerEnd);
+      el.removeEventListener("mousedown", handleMouseDown);
+      el.removeEventListener("mousemove", handleMouseMove);
+      el.removeEventListener("mouseup", handleMouseUp);
       el.removeEventListener("contextmenu", handleContextMenu);
       clearTimers();
     };

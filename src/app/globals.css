@@ -5,7 +5,7 @@
   --font-serif: var(--font-source-serif);
 }
 
-.no-select {
+html {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;

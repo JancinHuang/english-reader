@@ -203,11 +203,11 @@ export default function Page() {
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as "all" | "draft" | "published")}
-          className="w-full rounded-xl border border-white/10 bg-transparent px-3 py-2 text-sm text-[#EAF0FF] outline-none focus:border-[#5B8CFF]/60"
+          className="w-full rounded-xl border border-white/10 bg-[#0B1220] px-3 py-2 text-sm text-[#EAF0FF] outline-none focus:border-[#5B8CFF]/60"
         >
-          <option value="all">全部状态</option>
-          <option value="published">已发布</option>
-          <option value="draft">草稿</option>
+          <option value="all" className="bg-[#0B1220]">全部状态</option>
+          <option value="published" className="bg-[#0B1220]">已发布</option>
+          <option value="draft" className="bg-[#0B1220]">草稿</option>
         </select>
       </div>
 
