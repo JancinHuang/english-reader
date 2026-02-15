@@ -1,36 +1,665 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# English Reader App 技术文档
 
-## Getting Started
+> 文档版本：1.0  
+> 更新日期：2026-02-15  
+> 项目版本：0.1.0
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 目录
+
+1. [项目概述](#1-项目概述)
+2. [系统架构](#2-系统架构)
+3. [技术栈总结](#3-技术栈总结)
+4. [模块功能说明](#4-模块功能说明)
+5. [项目结构](#5-项目结构)
+6. [核心业务流程](#6-核心业务流程)
+7. [部署架构](#7-部署架构)
+8. [性能与安全](#8-性能与安全)
+9. [扩展性设计](#9-扩展性设计)
+10. [开发规范](#10-开发规范)
+
+---
+
+## 1. 项目概述
+
+### 1.1 核心功能
+
+**English Reader App** 是一个英语精读学习平台，主要功能包括：
+
+| 功能模块 | 描述 |
+|----------|------|
+| **分段阅读** | 英文原文按段落展示，用户可按需查看中文译文 |
+| **核心词汇** | 每篇文章配套核心词汇表，包含单词、音标和中文释义 |
+| **即时翻译** | 长按单词触发即时翻译，支持百度翻译和MyMemory免费翻译 |
+| **阅读测验** | 阅读完成后进行选择题测验，验证理解程度 |
+| **后台管理** | 管理员可创建、编辑、发布文章，支持草稿/发布状态管理 |
+
+### 1.2 目标用户群体
+
+- 英语学习者（中级水平）
+- 希望通过阅读提升英语能力的用户
+- 需要精读训练的学生群体
+
+### 1.3 主要应用场景
+
+- 日常英语阅读训练
+- 词汇积累与巩固
+- 阅读理解能力测评
+
+---
+
+## 2. 系统架构
+
+### 2.1 整体架构图
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         客户端层 (Frontend)                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐              │
+│  │   首页      │  │  阅读页面   │  │  测验页面   │              │
+│  │  (SSR)     │  │  (SSR+CSR)  │  │  (SSR+CSR)  │              │
+│  └─────────────┘  └─────────────┘  └─────────────┘              │
+│  ┌─────────────────────────────────────────────────┐            │
+│  │              后台管理模块 (CSR)                  │            │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐      │            │
+│  │  │ 登录页面 │  │ 文章列表 │  │ 文章编辑 │      │            │
+│  │  └──────────┘  └──────────┘  └──────────┘      │            │
+│  └─────────────────────────────────────────────────┘            │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       API 层 (Next.js API Routes)               │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │ /api/articles   │  │ /api/translate  │  │ /api/admin/*    │  │
+│  │  文章列表/详情  │  │   即时翻译服务  │  │   后台管理API   │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        数据层 (Data Layer)                       │
+│  ┌─────────────────────────┐  ┌─────────────────────────────┐  │
+│  │    Supabase PostgreSQL  │  │     本地数据源(降级方案)    │  │
+│  │    - articles 表        │  │     - data/articles.ts      │  │
+│  │    - dataset_meta 表    │  │                             │  │
+│  └─────────────────────────┘  └─────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      外部服务层                                  │
+│  ┌─────────────────┐  ┌─────────────────────────────────────┐  │
+│  │  百度翻译 API   │  │  MyMemory Translation API (免费)    │  │
+│  └─────────────────┘  └─────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2.2 模块间交互图
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+┌──────────────┐     读取文章      ┌──────────────┐
+│   首页模块   │ ────────────────▶ │  文章服务层  │
+└──────────────┘                   └──────────────┘
+       │                                  │
+       │ 跳转阅读                          │ 查询
+       ▼                                  ▼
+┌──────────────┐                   ┌──────────────┐
+│   阅读模块   │                   │   Supabase   │
+│              │                   │   Database   │
+│ - 段落展示   │                   └──────────────┘
+│ - 译文切换   │                          │
+│ - 即时翻译   │                          │ 写入
+└──────────────┘                          ▼
+       │                           ┌──────────────┐
+       │ 跳转测验                   │  后台管理    │
+       ▼                           │    模块      │
+┌──────────────┐                   │              │
+│   测验模块   │                   │ - 文章CRUD   │
+│              │◀──────────────────│ - 发布管理   │
+│ - 选择题     │    数据共享       │ - 登录认证   │
+│ - 答案校验   │                   └──────────────┘
+└──────────────┘
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2.3 架构设计理念
 
-## Learn More
+| 层级 | 设计理念 | 说明 |
+|------|----------|------|
+| 客户端层 | SSR优先 + CSR交互 | 首屏SSR保证SEO和性能，交互部分使用CSR |
+| API层 | RESTful设计 | 统一的API接口规范，清晰的资源划分 |
+| 数据层 | 主备降级 | Supabase为主，本地数据为降级方案 |
+| 安全层 | 中间件保护 | 敏感路径通过中间件进行权限校验 |
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 3. 技术栈总结
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3.1 前端技术栈
 
-## Deploy on Vercel
+| 技术 | 版本 | 选型理由 |
+|------|------|----------|
+| **Next.js** | 16.1.6 | React全栈框架，支持SSR/SSG，内置API路由 |
+| **React** | 19.2.3 | 最新版本，支持React Compiler优化 |
+| **TypeScript** | 5.x | 类型安全，提升代码可维护性 |
+| **Tailwind CSS** | 4.x | 原子化CSS，快速构建UI |
+| **Framer Motion** | 11.18.2 | 声明式动画库，流畅的UI动效 |
+| **Lucide React** | 0.511.0 | 轻量级图标库，Tree-shakable |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 3.2 后端技术栈
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 技术 | 版本 | 选型理由 |
+|------|------|----------|
+| **Next.js API Routes** | 16.1.6 | 与前端同构，简化部署 |
+| **Supabase JS SDK** | 2.95.3 | PostgreSQL托管服务，内置认证和RLS |
+
+### 3.3 数据库
+
+| 技术 | 说明 |
+|------|------|
+| **PostgreSQL (Supabase)** | 云托管PostgreSQL，支持Row Level Security |
+
+### 3.4 开发工具
+
+| 工具 | 用途 |
+|------|------|
+| **ESLint** | 代码质量检查 |
+| **Babel React Compiler** | React编译优化 |
+| **PostCSS** | CSS处理 |
+
+---
+
+## 4. 模块功能说明
+
+### 4.1 模块划分
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      功能模块架构                            │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  文章展示   │  │  即时翻译   │  │  测验系统   │         │
+│  │    模块     │  │    模块     │  │    模块     │         │
+│  └─────────────┘  └─────────────┘  └─────────────┘         │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                   后台管理模块                       │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │   │
+│  │  │ 认证管理 │  │ 文章管理 │  │ 发布管理 │          │   │
+│  │  └──────────┘  └──────────┘  └──────────┘          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 4.2 各模块详细说明
+
+#### 4.2.1 文章展示模块
+
+| 属性 | 说明 |
+|------|------|
+| **核心职责** | 展示文章列表、文章详情、词汇表 |
+| **主要功能** | 文章列表展示、段落级阅读、译文切换 |
+| **关键文件** | `src/app/page.tsx`、`src/app/read/[articleId]/ReaderClient.tsx` |
+| **依赖模块** | 文章服务层、词汇卡片组件、段落组件 |
+
+#### 4.2.2 即时翻译模块
+
+| 属性 | 说明 |
+|------|------|
+| **核心职责** | 提供长按单词即时翻译功能 |
+| **主要功能** | 长按检测、词汇表匹配、API翻译、结果缓存 |
+| **关键文件** | `src/hooks/useTranslateInteraction.ts`、`src/lib/translateService.ts` |
+| **依赖模块** | 翻译API、翻译提供者、缓存服务 |
+
+#### 4.2.3 测验系统模块
+
+| 属性 | 说明 |
+|------|------|
+| **核心职责** | 提供阅读理解测验功能 |
+| **主要功能** | 选择题展示、答案提交、结果统计、解析展示 |
+| **关键文件** | `src/app/quiz/[articleId]/QuizClient.tsx`、`src/components/QuizQuestionCard.tsx` |
+| **依赖模块** | 文章数据、动画组件 |
+
+#### 4.2.4 后台管理模块
+
+| 属性 | 说明 |
+|------|------|
+| **核心职责** | 文章内容管理和发布控制 |
+| **主要功能** | 管理员登录、文章CRUD、JSON编辑器、发布/草稿状态管理 |
+| **关键文件** | `src/components/admin/AdminShell.tsx`、`src/components/admin/ArticleEditor.tsx` |
+| **依赖模块** | 认证服务、文章API |
+
+---
+
+## 5. 项目结构
+
+```
+english-reader-app/
+├── .trae/                          # 项目文档目录
+│   └── documents/
+│       ├── article-admin-prd.md
+│       ├── article-admin-technical-architecture.md
+│       └── ...
+├── data/                           # 本地数据源
+│   └── articles.ts                 # 文章静态数据(降级方案)
+├── public/                         # 静态资源
+├── src/
+│   ├── app/                        # Next.js App Router
+│   │   ├── admin/                  # 后台管理页面
+│   │   │   ├── articles/           # 文章管理
+│   │   │   │   ├── [articleId]/    # 编辑文章
+│   │   │   │   ├── new/            # 新建文章
+│   │   │   │   └── page.tsx        # 文章列表
+│   │   │   ├── login/              # 登录页面
+│   │   │   ├── layout.tsx          # 后台布局
+│   │   │   └── page.tsx            # 重定向到文章列表
+│   │   ├── api/                    # API路由
+│   │   │   ├── admin/              # 后台管理API
+│   │   │   │   ├── articles/       # 文章CRUD
+│   │   │   │   ├── login/          # 登录
+│   │   │   │   ├── logout/         # 登出
+│   │   │   │   └── seed/           # 数据初始化
+│   │   │   ├── articles/           # 公开文章API
+│   │   │   └── translate/          # 翻译API
+│   │   ├── quiz/                   # 测验页面
+│   │   │   └── [articleId]/
+│   │   │       ├── QuizClient.tsx
+│   │   │       └── page.tsx
+│   │   ├── read/                   # 阅读页面
+│   │   │   └── [articleId]/
+│   │   │       ├── ReaderClient.tsx
+│   │   │       └── page.tsx
+│   │   ├── globals.css             # 全局样式
+│   │   ├── layout.tsx              # 根布局
+│   │   └── page.tsx                # 首页
+│   ├── components/                 # React组件
+│   │   ├── admin/                  # 后台组件
+│   │   │   ├── AdminShell.tsx      # 后台框架
+│   │   │   └── ArticleEditor.tsx   # 文章编辑器
+│   │   ├── translation/            # 翻译组件
+│   │   │   └── TranslatePopover.tsx
+│   │   ├── Container.tsx           # 容器组件
+│   │   ├── ParagraphBlock.tsx      # 段落块组件
+│   │   ├── QuizQuestionCard.tsx    # 测验题目卡片
+│   │   └── VocabCard.tsx           # 词汇卡片
+│   ├── hooks/                      # 自定义Hooks
+│   │   └── useTranslateInteraction.ts  # 翻译交互Hook
+│   ├── lib/                        # 核心库
+│   │   ├── adminAuth.ts            # 管理员认证(服务端)
+│   │   ├── adminAuthEdge.ts        # 管理员认证(Edge)
+│   │   ├── articleTypes.ts         # 文章类型定义
+│   │   ├── articleValidation.ts    # 文章验证
+│   │   ├── articles.ts             # 文章服务(统一入口)
+│   │   ├── articlesDb.ts           # 数据库文章服务
+│   │   ├── articlesLocal.ts        # 本地文章服务
+│   │   ├── requestBaseUrl.ts       # 请求基础URL
+│   │   ├── supabase.ts             # Supabase客户端
+│   │   ├── translateCache.ts       # 翻译缓存
+│   │   ├── translateProviders.ts   # 翻译提供者
+│   │   └── translateService.ts     # 翻译服务
+│   ├── utils/                      # 工具函数
+│   │   ├── translateDom.ts         # DOM翻译工具
+│   │   └── translateSettings.ts    # 翻译设置
+│   └── middleware.ts               # Next.js中间件
+├── supabase/                       # Supabase配置
+│   └── migrations/                 # 数据库迁移
+│       ├── 0001_articles.sql       # 文章表
+│       ├── 0002_add_status_field.sql
+│       └── 0002_article_admin.sql
+├── Dockerfile                      # Docker构建文件
+├── docker-compose.yml              # Docker Compose配置
+├── nginx.conf                      # Nginx配置
+├── next.config.ts                  # Next.js配置
+├── package.json                    # 项目依赖
+├── postcss.config.mjs              # PostCSS配置
+└── tsconfig.json                   # TypeScript配置
+```
+
+---
+
+## 6. 核心业务流程
+
+### 6.1 用户阅读流程
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   访问首页  │────▶│  选择文章   │────▶│  进入阅读   │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                               │
+                                               ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  完成测验   │◀────│  阅读完毕   │◀────│  阅读段落   │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                                       │
+       │                                       ▼
+       │              ┌─────────────┐     ┌─────────────┐
+       │              │  查看译文   │◀────│  长按单词   │
+       │              └─────────────┘     └─────────────┘
+       │                    │                    │
+       │                    ▼                    ▼
+       │              ┌─────────────┐     ┌─────────────┐
+       │              │  查看词汇   │     │  即时翻译   │
+       │              └─────────────┘     └─────────────┘
+       ▼
+┌─────────────┐     ┌─────────────┐
+│  查看结果   │────▶│  返回首页   │
+└─────────────┘     └─────────────┘
+```
+
+### 6.2 即时翻译流程
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  长按屏幕   │────▶│  检测单词   │────▶│  查词汇表   │
+└─────────────┘     └─────────────┘     └─────────────┘
+                                               │
+                              ┌────────────────┴────────────────┐
+                              │                                 │
+                              ▼                                 ▼
+                       ┌─────────────┐                  ┌─────────────┐
+                       │  命中词汇   │                  │  未命中     │
+                       │  直接展示   │                  │  调用API    │
+                       └─────────────┘                  └─────────────┘
+                              │                                 │
+                              │                          ┌──────┴──────┐
+                              │                          ▼             ▼
+                              │                   ┌───────────┐  ┌───────────┐
+                              │                   │ 百度翻译  │  │ MyMemory  │
+                              │                   └───────────┘  └───────────┘
+                              │                          │             │
+                              │                          └──────┬──────┘
+                              │                                 ▼
+                              │                          ┌─────────────┐
+                              │                          │  缓存结果   │
+                              │                          └─────────────┘
+                              │                                 │
+                              └────────────────┬────────────────┘
+                                               ▼
+                                        ┌─────────────┐
+                                        │  展示翻译   │
+                                        └─────────────┘
+```
+
+### 6.3 后台管理流程
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  访问后台   │────▶│  身份验证   │────▶│  文章列表   │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                   │                    │
+       │                   ▼                    ▼
+       │            ┌─────────────┐      ┌─────────────┐
+       │            │  未登录     │      │  新建/编辑  │
+       │            │  跳转登录   │      │  文章       │
+       │            └─────────────┘      └─────────────┘
+       │                                        │
+       │                                        ▼
+       │                                 ┌─────────────┐
+       │                                 │  JSON编辑   │
+       │                                 └─────────────┘
+       │                                        │
+       │                    ┌───────────────────┼───────────────────┐
+       │                    ▼                   ▼                   ▼
+       │             ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+       │             │  保存草稿   │     │  保存发布   │     │  删除文章   │
+       │             └─────────────┘     └─────────────┘     └─────────────┘
+       │                    │                   │                   │
+       │                    └───────────────────┼───────────────────┘
+       │                                        ▼
+       │                                 ┌─────────────┐
+       └────────────────────────────────▶│  返回列表   │
+                                         └─────────────┘
+```
+
+---
+
+## 7. 部署架构
+
+### 7.1 部署环境
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      生产环境架构                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│    ┌─────────────┐     ┌─────────────────────────────┐     │
+│    │   Nginx     │────▶│   Docker Container          │     │
+│    │   (反向代理) │     │   (Next.js Application)     │     │
+│    │   Port: 80  │     │   Port: 3000                │     │
+│    └─────────────┘     └─────────────────────────────┘     │
+│                                   │                         │
+│                                   ▼                         │
+│                         ┌─────────────────────┐             │
+│                         │   Supabase Cloud    │             │
+│                         │   (PostgreSQL)      │             │
+│                         └─────────────────────┘             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 部署方式
+
+#### Docker部署
+
+```yaml
+# docker-compose.yml
+version: '3'
+services:
+  english-reader-app:
+    build: .
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"
+    restart: always
+```
+
+#### 部署命令
+
+```bash
+# 构建镜像
+docker build -t english-reader-app .
+
+# 启动服务
+docker-compose up -d
+```
+
+### 7.3 环境变量配置
+
+| 变量名 | 说明 | 必需 |
+|--------|------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase项目URL | ✓ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase匿名密钥 | ✓ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase服务角色密钥 | ✓ |
+| `ADMIN_PASSWORD` | 管理员密码 | ✓ |
+| `ADMIN_SESSION_SECRET` | 会话签名密钥 | ✓ |
+| `ADMIN_COOKIE_SECURE` | Cookie安全标志 | - |
+| `BAIDU_TRANSLATE_APP_ID` | 百度翻译AppID | - |
+| `BAIDU_TRANSLATE_KEY` | 百度翻译密钥 | - |
+
+---
+
+## 8. 性能与安全
+
+### 8.1 性能优化策略
+
+| 策略 | 实现方式 | 效果 |
+|------|----------|------|
+| **SSR首屏渲染** | Next.js服务端渲染 | 首屏快速加载，SEO友好 |
+| **React Compiler** | babel-plugin-react-compiler | 自动优化组件渲染 |
+| **翻译缓存** | 内存缓存(10分钟TTL) | 减少API调用 |
+| **客户端缓存** | 本地Map缓存 | 避免重复翻译 |
+| **数据降级** | 本地数据源备份 | 数据库不可用时仍可访问 |
+| **静态资源优化** | Next.js内置优化 | 自动压缩、缓存 |
+
+### 8.2 安全防护措施
+
+| 措施 | 实现方式 | 说明 |
+|------|----------|------|
+| **中间件保护** | `src/middleware.ts` | 后台路径强制认证 |
+| **HMAC签名** | SHA256签名Cookie | 防止会话篡改 |
+| **时序安全比较** | timingSafeEqual | 防止时序攻击 |
+| **Row Level Security** | Supabase RLS策略 | 数据库级别权限控制 |
+| **HttpOnly Cookie** | 会话Cookie设置 | 防止XSS窃取 |
+| **SameSite Lax** | Cookie属性 | 防止CSRF |
+
+### 8.3 数据库安全策略
+
+```sql
+-- RLS策略：匿名用户只能查看已发布文章
+create policy "articles_select_public"
+on public.articles
+for select
+to anon
+using (status = 'published');
+```
+
+---
+
+## 9. 扩展性设计
+
+### 9.1 翻译服务扩展
+
+翻译服务采用策略模式，易于扩展新的翻译提供者：
+
+```typescript
+// translateProviders.ts
+export type TranslateProvider = "auto" | "baidu" | "mymemory";
+
+// 添加新提供者只需：
+// 1. 扩展TranslateProvider类型
+// 2. 实现translateWith[Provider]函数
+// 3. 在translateText中添加调用逻辑
+```
+
+### 9.2 数据源扩展
+
+数据层采用降级模式，支持多种数据源：
+
+```
+Supabase (主) → 本地数据 (备) → 可扩展其他数据源
+```
+
+### 9.3 未来功能扩展规划
+
+| 功能 | 描述 | 优先级 |
+|------|------|--------|
+| 用户系统 | 支持用户注册、登录、学习进度保存 | 高 |
+| 文章分类 | 按难度、主题分类文章 | 中 |
+| 学习统计 | 阅读时长、测验成绩统计 | 中 |
+| 生词本 | 用户个人生词收藏 | 中 |
+| 音频朗读 | 文章音频播放功能 | 低 |
+
+---
+
+## 10. 开发规范
+
+### 10.1 编码规范
+
+| 规范 | 说明 |
+|------|------|
+| **TypeScript严格模式** | 启用strict模式，类型安全 |
+| **函数式组件** | 统一使用函数式组件 + Hooks |
+| **命名约定** | 组件PascalCase，函数/变量camelCase |
+| **文件命名** | 组件文件PascalCase，工具文件camelCase |
+
+### 10.2 目录规范
+
+| 目录 | 用途 |
+|------|------|
+| `app/` | Next.js App Router页面和API |
+| `components/` | 可复用React组件 |
+| `hooks/` | 自定义React Hooks |
+| `lib/` | 核心业务逻辑和服务 |
+| `utils/` | 工具函数 |
+
+### 10.3 API规范
+
+| 规范 | 说明 |
+|------|------|
+| **RESTful设计** | 资源导向的URL设计 |
+| **统一响应格式** | JSON格式响应 |
+| **错误处理** | 统一错误消息格式 `{ message: string }` |
+| **HTTP状态码** | 正确使用2xx/4xx/5xx状态码 |
+
+### 10.4 Git规范
+
+```
+# 分支命名
+feature/功能名称
+fix/问题描述
+hotfix/紧急修复
+
+# 提交信息
+feat: 新功能
+fix: 修复bug
+docs: 文档更新
+refactor: 代码重构
+style: 代码格式
+```
+
+---
+
+## 附录
+
+### A. 数据模型定义
+
+```typescript
+// 文章类型
+type Article = {
+  id: string;
+  title: string;
+  tags: string[];
+  vocab: VocabItem[];
+  content: ArticleParagraph[];
+  quiz: QuizQuestion[];
+};
+
+// 词汇项
+type VocabItem = {
+  word: string;
+  phonetic: string;
+  cn: string;
+};
+
+// 文章段落
+type ArticleParagraph = {
+  id: number;
+  en: string;
+  cn: string;
+};
+
+// 测验题目
+type QuizQuestion = {
+  id: number;
+  question: string;
+  options: QuizOption[];
+  correctId: string;
+  analysis: string;
+};
+
+// 测验选项
+type QuizOption = {
+  id: string;
+  text: string;
+};
+```
+
+### B. API接口列表
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/articles` | GET | 获取文章列表 |
+| `/api/articles/[articleId]` | GET | 获取文章详情 |
+| `/api/translate` | POST | 即时翻译 |
+| `/api/admin/articles` | GET/POST | 文章列表/创建 |
+| `/api/admin/articles/[articleId]` | GET/PUT/DELETE | 文章详情/更新/删除 |
+| `/api/admin/articles/[articleId]/publish` | POST | 发布文章 |
+| `/api/admin/login` | POST | 管理员登录 |
+| `/api/admin/logout` | POST | 管理员登出 |
+
+---
+
+*文档结束*
