@@ -4,3 +4,11 @@
   --font-sans: var(--font-inter);
   --font-serif: var(--font-source-serif);
 }
+
+.no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

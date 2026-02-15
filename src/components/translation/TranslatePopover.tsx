@@ -18,6 +18,9 @@ export type TranslatePopoverState = {
       };
 };
 
+const POPOVER_WIDTH = 360;
+const POPOVER_MARGIN = 12;
+
 export function TranslatePopover({
   state,
   onClose,
@@ -29,8 +32,20 @@ export function TranslatePopover({
     return null;
   }
 
-  const top = Math.max(12, state.anchor.y + 12);
-  const left = Math.max(12, state.anchor.x - 180);
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : 375;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : 667;
+
+  const maxWidth = viewportWidth - POPOVER_MARGIN * 2;
+  const actualWidth = Math.min(POPOVER_WIDTH, maxWidth);
+
+  let left = state.anchor.x - actualWidth / 2;
+  if (left < POPOVER_MARGIN) {
+    left = POPOVER_MARGIN;
+  } else if (left + actualWidth > viewportWidth - POPOVER_MARGIN) {
+    left = viewportWidth - POPOVER_MARGIN - actualWidth;
+  }
+
+  const top = Math.min(state.anchor.y + POPOVER_MARGIN, viewportHeight - POPOVER_MARGIN - 150);
 
   return (
     <>
@@ -41,7 +56,7 @@ export function TranslatePopover({
       />
       <div
         className="fixed z-[60]"
-        style={{ top, left, width: 360, maxWidth: "calc(100vw - 24px)" }}
+        style={{ top, left, width: actualWidth }}
         role="dialog"
         aria-label="翻译"
       >

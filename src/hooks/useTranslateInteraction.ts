@@ -45,6 +45,7 @@ export function useTranslateInteraction(params: { article: Article }) {
   const longPressTimer = useRef<number | null>(null);
   const startPoint = useRef<{ x: number; y: number } | null>(null);
   const clientCache = useRef(new Map<string, { at: number; translatedText: string; provider: string }>());
+  const longPressTriggered = useRef(false);
 
   function closePopover() {
     setPopover((p) => ({ ...p, open: false, loading: false }));
@@ -142,6 +143,7 @@ export function useTranslateInteraction(params: { article: Article }) {
   function onPointerStart(x: number, y: number) {
     clearTimers();
     startPoint.current = { x, y };
+    longPressTriggered.current = false;
     longPressTimer.current = window.setTimeout(() => {
       const s = settingsRef.current;
       if (!s.enabled) {
@@ -151,6 +153,7 @@ export function useTranslateInteraction(params: { article: Article }) {
       if (!found.word) {
         return;
       }
+      longPressTriggered.current = true;
       const rect = found.rect;
       const anchor = rect
         ? { x: rect.left + rect.width / 2, y: rect.bottom }
@@ -199,8 +202,19 @@ export function useTranslateInteraction(params: { article: Article }) {
       if (!t) return;
       onPointerMove(t.clientX, t.clientY);
     },
-    onTouchEnd: () => {
+    onTouchEnd: (e: React.TouchEvent) => {
+      if (longPressTriggered.current) {
+        e.preventDefault();
+      }
       onPointerEnd();
+    },
+    onTouchCancel: () => {
+      onPointerEnd();
+    },
+    onContextMenu: (e: React.MouseEvent) => {
+      if (longPressTriggered.current) {
+        e.preventDefault();
+      }
     },
     onMouseDown: (e: React.MouseEvent) => {
       if (e.button !== 0) return;

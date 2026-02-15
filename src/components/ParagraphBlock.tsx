@@ -24,7 +24,7 @@ export function ParagraphBlock({
         <div className="text-xs font-medium text-zinc-500">段落 {data.id}</div>
       </div>
 
-      <p className="mt-3 font-serif text-lg leading-8 text-zinc-950">{data.en}</p>
+      <p className="mt-3 font-serif text-lg leading-8 text-zinc-950 no-select">{data.en}</p>
 
       <div className="mt-4">
         <button
