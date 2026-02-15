@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# deploy scripts
+*-deploy.sh
+*.tar.gz
+
+# duplicate project folder
+english-reader/

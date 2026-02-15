@@ -1,17 +1,12 @@
 import Link from "next/link";
 import { BookOpen, CircleHelp } from "lucide-react";
 
-import type { ArticleListItem } from "@/lib/articleTypes";
-import { getRequestBaseUrl } from "@/lib/requestBaseUrl";
+import { listArticles } from "@/lib/articles";
 
 import { Container } from "@/components/Container";
 
 export default async function Home() {
-  const baseUrl = (await getRequestBaseUrl()) ?? "http://localhost:3000";
-  const res = await fetch(`${baseUrl}/api/articles`, {
-    cache: "no-store",
-  });
-  const articles = (await res.json()) as ArticleListItem[];
+  const articles = await listArticles();
 
   return (
     <div className="min-h-dvh bg-white">
